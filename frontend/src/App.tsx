@@ -46,10 +46,37 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [connected, setConnected] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const [processedUrl, setProcessedUrl] = useState<string | null>(null);
+  const [enhancing, setEnhancing] = useState(false);
   const active = jobs.find((j) => ["queued", "generating"].includes(j.status));
   const current =
     jobs.find((j) => j.id === selected) ||
     jobs.find((j) => j.status === "completed");
+  async function enhanceCurrent() {
+    if (!current || enhancing) return;
+    setEnhancing(true);
+    setError("");
+    try {
+      const result = await api<{ url: string }>("/audio/enhance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_id: current.id,
+          settings: {
+            denoise: true,
+            highpass: 80,
+            compressor: true,
+            normalize: true,
+          },
+        }),
+      });
+      setProcessedUrl(result.url);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setEnhancing(false);
+    }
+  }
   useEffect(() => {
     api<Voice[]>("/voices")
       .then((v) => {
@@ -446,7 +473,21 @@ export default function App() {
                     {current.duration?.toFixed(1)} sec
                   </span>
                 </div>
-                <audio controls src={`/api/jobs/${current.id}/audio`} />
+                <audio
+                  controls
+                  src={processedUrl || `/api/jobs/${current.id}/audio`}
+                />
+                <button
+                  className="secondary"
+                  onClick={() => void enhanceCurrent()}
+                  disabled={enhancing}
+                >
+                  {enhancing
+                    ? "Enhancing…"
+                    : processedUrl
+                      ? "Enhanced"
+                      : "Enhance"}
+                </button>
                 <a
                   className="secondary"
                   href={`/api/jobs/${current.id}/audio`}

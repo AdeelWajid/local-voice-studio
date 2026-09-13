@@ -6,6 +6,7 @@
   font-weight: 400;
   color-scheme: dark;
 }
+.editor-strip{border-top:1px solid #303638;padding:14px 21px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.editor-strip .field-label{margin:0 8px 0 0}.editor-strip input{width:90px;padding:8px}.editor-strip .secondary{padding:8px 10px}.project-name{width:180px;padding:7px!important;background:transparent;border:1px solid #303638!important}.save-project{padding:7px 10px!important;width:auto!important}
 * {
   box-sizing: border-box;
 }

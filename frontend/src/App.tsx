@@ -48,6 +48,10 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [processedUrl, setProcessedUrl] = useState<string | null>(null);
   const [enhancing, setEnhancing] = useState(false);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [trimmedUrl, setTrimmedUrl] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState("Untitled project");
   const active = jobs.find((j) => ["queued", "generating"].includes(j.status));
   const current =
     jobs.find((j) => j.id === selected) ||
@@ -75,6 +79,45 @@ export default function App() {
       setError((e as Error).message);
     } finally {
       setEnhancing(false);
+    }
+  }
+  async function trimCurrent() {
+    if (!current || trimEnd <= trimStart) return;
+    try {
+      const result = await api<{ url: string }>("/audio/trim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_id: current.id,
+          start: trimStart,
+          end: trimEnd,
+        }),
+      });
+      setTrimmedUrl(result.url);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+  async function saveProject() {
+    try {
+      await api("/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: projectName,
+          script: text,
+          settings: {
+            voice_id: voice,
+            language,
+            emotion_mode: emotionMode,
+            emotion_vector: emotion,
+            emotion_alpha: alpha,
+            duration_factor: speed,
+          },
+        }),
+      });
+    } catch (e) {
+      setError((e as Error).message);
     }
   }
   useEffect(() => {
@@ -458,58 +501,92 @@ export default function App() {
               </div>
             )}
             {current ? (
-              <div className="audio-result">
-                <div>
-                  <span className="take-icon">
-                    <FileAudio size={22} />
-                  </span>
-                  <strong>
-                    Take{" "}
-                    {jobs
-                      .filter((j) => j.status === "completed")
-                      .findIndex((j) => j.id === current.id) + 1}
-                  </strong>
-                  <span className="muted">
-                    {current.duration?.toFixed(1)} sec
-                  </span>
+              <>
+                <div className="audio-result">
+                  <div>
+                    <span className="take-icon">
+                      <FileAudio size={22} />
+                    </span>
+                    <strong>
+                      Take{" "}
+                      {jobs
+                        .filter((j) => j.status === "completed")
+                        .findIndex((j) => j.id === current.id) + 1}
+                    </strong>
+                    <span className="muted">
+                      {current.duration?.toFixed(1)} sec
+                    </span>
+                  </div>
+                  <audio
+                    controls
+                    src={
+                      trimmedUrl ||
+                      processedUrl ||
+                      `/api/jobs/${current.id}/audio`
+                    }
+                  />
+                  <button
+                    className="secondary"
+                    onClick={() => void enhanceCurrent()}
+                    disabled={enhancing}
+                  >
+                    {enhancing
+                      ? "Enhancing…"
+                      : processedUrl
+                        ? "Enhanced"
+                        : "Enhance"}
+                  </button>
+                  <a
+                    className="secondary"
+                    href={`/api/jobs/${current.id}/audio`}
+                    download
+                  >
+                    <Download size={16} /> WAV
+                  </a>
+                  <a
+                    className="secondary"
+                    href={`/api/jobs/${current.id}/export/flac`}
+                    download
+                  >
+                    FLAC
+                  </a>
+                  <a
+                    className="secondary"
+                    href={`/api/jobs/${current.id}/export/mp3`}
+                    download
+                  >
+                    MP3
+                  </a>
                 </div>
-                <audio
-                  controls
-                  src={processedUrl || `/api/jobs/${current.id}/audio`}
-                />
-                <button
-                  className="secondary"
-                  onClick={() => void enhanceCurrent()}
-                  disabled={enhancing}
-                >
-                  {enhancing
-                    ? "Enhancing…"
-                    : processedUrl
-                      ? "Enhanced"
-                      : "Enhance"}
-                </button>
-                <a
-                  className="secondary"
-                  href={`/api/jobs/${current.id}/audio`}
-                  download
-                >
-                  <Download size={16} /> WAV
-                </a>
-                <a
-                  className="secondary"
-                  href={`/api/jobs/${current.id}/export/flac`}
-                  download
-                >
-                  FLAC
-                </a>
-                <a
-                  className="secondary"
-                  href={`/api/jobs/${current.id}/export/mp3`}
-                  download
-                >
-                  MP3
-                </a>
-              </div>
+                <div className="editor-strip">
+                  <span className="field-label">NON-DESTRUCTIVE TRIM</span>
+                  <input
+                    aria-label="Trim start"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    placeholder="Start sec"
+                    value={trimStart || ""}
+                    onChange={(e) => setTrimStart(Number(e.target.value))}
+                  />
+                  <input
+                    aria-label="Trim end"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    placeholder="End sec"
+                    value={trimEnd || ""}
+                    onChange={(e) => setTrimEnd(Number(e.target.value))}
+                  />
+                  <button
+                    className="secondary"
+                    onClick={() => void trimCurrent()}
+                    disabled={trimEnd <= trimStart}
+                  >
+                    Apply trim
+                  </button>
+                </div>
+              </>
             ) : (
               <div className="output-empty">
                 <AudioLines size={30} />
@@ -543,6 +620,18 @@ export default function App() {
             )}
           </section>
           <footer>
+            <input
+              className="project-name"
+              aria-label="Project name"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+            />
+            <button
+              className="secondary save-project"
+              onClick={() => void saveProject()}
+            >
+              Save project
+            </button>
             <span>
               <i className="dot" /> No cloud TTS. No account. Just your voice.
             </span>

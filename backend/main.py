@@ -227,7 +227,7 @@ def concat_audio(payload: dict):
         for i in range(len(sources)):
             parts.append(f'[{i}:a]')
             if i < len(sources)-1: parts.append(f'silence{i}')
-        silence = ''.join(f'aevalsrc=0:d={gap}:s=22050:c=mono[silence{i}];' for i in range(len(sources)-1))
+        silence = ''.join(f'anullsrc=r=22050:cl=mono:d={gap}[silence{i}];' for i in range(len(sources)-1))
         graph = silence + ''.join(parts) + f'concat=n={len(sources)*2-1}:v=0:a=1[out]'
     else:
         graph = ''.join(f'[{i}:a]' for i in range(len(sources))) + f'concat=n={len(sources)}:v=0:a=1[out]'

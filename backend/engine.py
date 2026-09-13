@@ -39,7 +39,7 @@ class IndexTTSEngine:
             self.state, self.error = 'error', str(exc)
             raise
 
-    def generate(self, request, reference, output):
+    def generate(self, request, reference, output, emotion_reference=None):
         with self.lock:
             self.load()
             import torch
@@ -52,6 +52,7 @@ class IndexTTSEngine:
                                      emo_alpha=request.emotion_alpha,
                                      use_emo_text=request.emotion_mode in ('description', 'auto_text'),
                                      emo_text=request.emotion_text if request.emotion_mode == 'description' else None,
+                                     emo_audio_prompt=str(emotion_reference) if emotion_reference and request.emotion_mode == 'reference' else None,
                                      use_random=request.use_random,
                                      duration_factor=request.duration_factor)
             except torch.cuda.OutOfMemoryError:

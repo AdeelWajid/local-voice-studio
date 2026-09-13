@@ -20,9 +20,17 @@ def initialize_database():
             id TEXT PRIMARY KEY, name TEXT NOT NULL, original TEXT NOT NULL,
             reference TEXT NOT NULL, duration REAL NOT NULL, created TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS emotion_refs (
+            id TEXT PRIMARY KEY, name TEXT NOT NULL, reference TEXT NOT NULL,
+            duration REAL NOT NULL, created TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS jobs (
             id TEXT PRIMARY KEY, status TEXT NOT NULL, request TEXT NOT NULL,
             audio TEXT, error TEXT, created TEXT NOT NULL, elapsed REAL, duration REAL
+        );
+        CREATE TABLE IF NOT EXISTS projects (
+            id TEXT PRIMARY KEY, name TEXT NOT NULL, script TEXT NOT NULL DEFAULT '',
+            settings TEXT NOT NULL DEFAULT '{}', updated TEXT NOT NULL
         );
         ''')
         db.execute("UPDATE jobs SET status='failed', error='The application stopped before this job finished.' WHERE status IN ('queued','generating')")

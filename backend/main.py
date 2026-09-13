@@ -1,4 +1,5 @@
 import asyncio
+import json
 import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,6 +15,7 @@ from backend.database import connection, initialize_database
 from backend.audio_io import decode_reference
 from backend.engine import engine
 from backend.jobs import jobs, now
+from backend.audio_edit import trim_audio
 from backend.schemas import GenerateRequest
 from backend.diagnostics import diagnostics, missing_checkpoints
 from backend.logging_setup import configure_logging
@@ -51,6 +53,33 @@ def system_diagnostics():
 def list_voices():
     with connection() as db:
         return [dict(v) for v in db.execute('SELECT * FROM voices ORDER BY created DESC')]
+
+@app.get('/api/emotion-references')
+def list_emotion_references():
+    with connection() as db:
+        return [dict(v) for v in db.execute('SELECT * FROM emotion_refs ORDER BY created DESC')]
+
+@app.post('/api/emotion-references', status_code=201)
+async def upload_emotion_reference(name: str = Form(...), file: UploadFile = File(...)):
+    name = name.strip()
+    if not name: raise HTTPException(422, 'Enter an emotion reference name.')
+    ref_id = str(uuid4()); folder = DATA / 'voices' / 'emotion' / ref_id; folder.mkdir(parents=True)
+    original = folder / ('original' + Path(file.filename or 'audio').suffix.lower())
+    reference = folder / 'reference.wav'
+    try:
+        with original.open('wb') as target:
+            size = 0
+            while chunk := await file.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_UPLOAD: raise HTTPException(413, 'The maximum recording size is 50 MB.')
+                target.write(chunk)
+        duration = await run_in_threadpool(decode_reference, original, reference)
+        result = {'id':ref_id,'name':name,'reference':str(reference.relative_to(DATA)),'duration':duration,'created':now()}
+        with connection() as db: db.execute('INSERT INTO emotion_refs VALUES(:id,:name,:reference,:duration,:created)', result)
+        return result
+    except Exception:
+        shutil.rmtree(folder, ignore_errors=True); raise
+    finally: await file.close()
 
 @app.post('/api/voices', status_code=201)
 async def upload_voice(name: str = Form(...), file: UploadFile = File(...)):
@@ -108,6 +137,40 @@ def generate(request: GenerateRequest):
 def list_jobs():
     with connection() as db:
         return [dict(row) for row in db.execute('SELECT * FROM jobs ORDER BY created DESC LIMIT 100')]
+
+@app.get('/api/projects')
+def list_projects():
+    with connection() as db: return [dict(row) for row in db.execute('SELECT * FROM projects ORDER BY updated DESC')]
+
+@app.post('/api/projects', status_code=201)
+def create_project(payload: dict):
+    name = str(payload.get('name','')).strip()
+    if not name: raise HTTPException(422, 'Enter a project name.')
+    project = {'id':str(uuid4()),'name':name,'script':str(payload.get('script',''))[:20000], 'settings':json.dumps(payload.get('settings',{})), 'updated':now()}
+    with connection() as db: db.execute('INSERT INTO projects VALUES(:id,:name,:script,:settings,:updated)', project)
+    return project
+
+@app.put('/api/projects/{project_id}')
+def update_project(project_id: str, payload: dict):
+    with connection() as db:
+        if not db.execute('SELECT id FROM projects WHERE id=?',(project_id,)).fetchone(): raise HTTPException(404,'Project not found.')
+        db.execute('UPDATE projects SET name=?,script=?,settings=?,updated=? WHERE id=?',(str(payload.get('name','Untitled'))[:100],str(payload.get('script',''))[:20000],json.dumps(payload.get('settings',{})),now(),project_id))
+        return dict(db.execute('SELECT * FROM projects WHERE id=?',(project_id,)).fetchone())
+
+@app.post('/api/audio/trim')
+def trim_endpoint(payload: dict):
+    job = get_job(str(payload.get('job_id','')))
+    if job['status'] != 'completed': raise HTTPException(409,'Audio is not ready yet.')
+    target = DATA / 'generations' / f"{job['id']}-trim.wav"
+    trim_audio(DATA / job['audio'], target, float(payload.get('start',0)), float(payload.get('end',0)))
+    return {'audio':str(target.relative_to(DATA)),'url':f"/api/audio/file/{target.name}"}
+
+@app.get('/api/audio/file/{filename}')
+def edited_audio(filename: str):
+    if '/' in filename or '\\' in filename or not filename.endswith('.wav'): raise HTTPException(404,'Audio not found.')
+    target = DATA / 'generations' / filename
+    if not target.is_file(): raise HTTPException(404,'Audio not found.')
+    return FileResponse(target, media_type='audio/wav')
 
 @app.get('/api/jobs/{job_id}')
 def get_job(job_id: str):

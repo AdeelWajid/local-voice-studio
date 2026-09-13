@@ -47,12 +47,13 @@ class GenerationQueue:
                         continue
                     request = GenerateRequest.model_validate_json(row['request'])
                     voice = db.execute('SELECT * FROM voices WHERE id=?', (request.voice_id,)).fetchone()
+                    emotion = db.execute('SELECT * FROM emotion_refs WHERE id=?', (request.emotion_reference_id,)).fetchone() if request.emotion_reference_id else None
                     changed = db.execute("UPDATE jobs SET status='generating' WHERE id=? AND status='queued'", (job_id,))
                     if not changed.rowcount:
                         continue
                 started = time.monotonic()
                 logging.getLogger('voice_studio').info('Generation started %s',job_id)
-                engine.generate(request, DATA / voice['reference'], output)
+                engine.generate(request, DATA / voice['reference'], output, DATA / emotion['reference'] if emotion else None)
                 info = sf.info(output)
                 with connection() as db:
                     changed = db.execute("UPDATE jobs SET status='completed',audio=?,elapsed=?,duration=? WHERE id=? AND status='generating'",

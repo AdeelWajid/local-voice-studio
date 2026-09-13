@@ -1,63 +1,111 @@
 # Local Voice Studio
 
-A local Windows speech studio using React, TypeScript, FastAPI and the official IndexTTS 2.5 engine. No cloud TTS service or account is required.
-
-**Development status:** Phase 1 is under construction. Real GPU inference has not yet passed its verification gate. Later emotion, editor, enhancement, project and batch features are not implemented yet. See [the specification](docs/SPECIFICATION.md) and [progress](docs/PROGRESS.md).
+Local Voice Studio is a local Windows web application for expressive speech generation with [IndexTTS 2.5](https://github.com/index-tts/index-tts). It provides voice cloning, emotion controls, emotion-reference audio, waveform previews, editing, multi-speaker timelines, projects, presets, batch generation, and WAV/FLAC/MP3 export. Your recordings and generated audio stay on your computer; no cloud TTS account is required.
 
 ## Requirements
 
-- Windows 11, NVIDIA GPU (target: RTX 5060 Ti 16 GB), current driver and sufficient free disk space for model weights and CUDA dependencies.
-- Git, uv, Node.js/npm and FFmpeg on PATH.
-- Python 3.11.9 is installed separately by the installer.
+- Windows 10/11 (Windows 11 recommended)
+- NVIDIA GPU with a current driver and enough VRAM for IndexTTS (verified on an RTX 5060 Ti 16 GB)
+- [Git](https://git-scm.com/), [uv](https://docs.astral.sh/uv/), [Node.js/npm](https://nodejs.org/), and [FFmpeg](https://ffmpeg.org/) on `PATH`
+- Internet access during installation for upstream source, dependencies, and model checkpoints
 
-## Install and start
+The installer provisions Python 3.11.9 and creates the model environment at `vendor/index-tts/.venv`. Model weights are downloaded separately and ignored by Git.
+
+## Install
+
+Open PowerShell in this repository and run:
 
 ```powershell
 .\scripts\install.ps1 -DownloadModels
+```
+
+To install without downloading large checkpoints, omit `-DownloadModels`; download later with:
+
+```powershell
+vendor\index-tts\.venv\Scripts\python.exe scripts\download_models.py
+```
+
+The installer pins the tested upstream IndexTTS revision, installs its locked CUDA/PyTorch environment, installs this app's dependencies, and builds the frontend.
+
+## Start
+
+Production build:
+
+```powershell
 .\start.ps1
 ```
 
-The installer uses official upstream revision `ee40fa7d6c6b8a2c7f06105f9f1e65775b74868c` and its frozen dependency lock, including PyTorch 2.8/CUDA 12.8, Transformers 4.52.1 and NumPy 2.2.6. It does not install unrelated system software. Model downloads require internet access and resume on subsequent runs. Voice files and scripts are never sent to a model service.
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000). For frontend development:
 
-The production interface is served at http://127.0.0.1:8000. For development use `start.ps1 -Dev` (Vite at localhost:5173). Backend and model run in one process; do not use multiple Uvicorn workers or reload while generating.
+```powershell
+.\start.ps1 -Dev
+```
+
+Then open [http://127.0.0.1:5173](http://127.0.0.1:5173). Add `-NoBrowser` to start without opening a browser. The model stays resident and jobs are processed sequentially; do not run multiple Uvicorn workers.
 
 ## Basic workflow
 
-1. Choose **Add a voice**, name it and upload a clean recording. Use only voices you own or have permission to use.
-2. Select the voice and enter your script. The original recording remains separate from the mono 24 kHz inference reference.
-3. Choose the script language: English, Chinese, Japanese, Spanish or Arabic. Urdu and Hindi are not supported by the official 2.5 release.
-4. Set the eight IndexTTS emotion dimensions, emotion strength, and speaking speed. The values are sent to the model as `emo_vector`, `emo_alpha`, and `duration_factor`; they are not decorative controls.
-5. Select **Generate speech** or press Ctrl+Enter. The first request loads the model; later requests reuse it.
-5. Play the output or download the original WAV.
+1. Choose **Add a voice** and upload a clean recording that you own or are authorized to use. References must be 3–60 seconds; 5–15 seconds is recommended.
+2. Select the voice, enter a script, and choose English, Chinese, Japanese, Spanish, or Arabic. Urdu and Hindi are not supported by the upstream release.
+3. Choose an emotion mode. The mixer exposes eight IndexTTS emotion dimensions, strength, and speed. Description mode accepts a natural-language prompt; reference mode accepts separate emotion audio.
+4. Select **Generate speech** or press `Ctrl+Enter`. The first request takes longer while the model loads.
+5. Review the waveform and take history, then trim, enhance, save a project, or export WAV, FLAC, or MP3.
+6. Use **Advanced timeline** to assign different saved speakers to lines and queue a multi-speaker sequence with configurable silence between segments.
 
-The script autosaves in this browser. Voice and generation metadata are stored in SQLite under `%LOCALAPPDATA%/LocalVoiceStudio/data`, with audio in separate UUID directories. This keeps private recordings outside this project's OneDrive-synced workspace. Set `VOICE_STUDIO_DATA` to override storage. The current first-phase limit is 2,000 characters and references of 3–60 seconds (5–15 recommended).
+Browser script drafts are autosaved locally. Application data is stored at `%LOCALAPPDATA%\LocalVoiceStudio\data` by default. Set `VOICE_STUDIO_DATA` to choose another local directory.
 
-Cancellation prevents queued work and discards output from an active model call after it finishes. It does not forcibly interrupt a CUDA kernel.
-
-## Checks
+## Verification
 
 ```powershell
 cd frontend
 npm.cmd run build
 cd ..
-vendor/index-tts/.venv/Scripts/python.exe -m pytest backend/tests
-vendor/index-tts/.venv/Scripts/python.exe scripts/smoke_gpu.py path/to/reference.wav
+vendor\index-tts\.venv\Scripts\python.exe -m pytest backend/tests -q
+vendor\index-tts\.venv\Scripts\python.exe scripts\diagnose.py
+vendor\index-tts\.venv\Scripts\python.exe scripts\smoke_gpu.py path\to\reference.wav
 ```
 
-The GPU smoke test requires the server and complete checkpoints, uploads the reference, generates actual speech and validates a non-silent WAV. Unit tests do not require model weights.
+The smoke test performs real local GPU inference and checks that the returned WAV is valid and non-silent. Diagnostics report Python packages, FFmpeg, GPU memory, checkpoint readiness, and storage paths.
+
+## Repository layout
+
+```text
+backend/       FastAPI API, job queue, IndexTTS adapter, audio processing, database
+frontend/      React + TypeScript + Vite interface
+scripts/       Installation, model download, startup, diagnostics, smoke test
+docs/          Specification and implementation progress
+vendor/        Upstream IndexTTS checkout (ignored by Git)
+```
 
 ## Troubleshooting
 
-- **Missing model:** run `scripts/download_models.py` with the vendor environment’s Python.
-- **CUDA unavailable:** use upstream’s CUDA 12.8 PyTorch packages, not a CPU-only wheel.
-- **Out of memory:** shorten the script or close other GPU applications. Generation is sequential and BF16 is used when supported. Custom CUDA compilation and DeepSpeed are disabled initially for Windows reliability.
-- **FFmpeg missing:** install FFmpeg and add its executable directory to PATH.
-- **Server failed:** inspect `logs/server-error.log`.
+- **Missing model:** run `scripts\download_models.py` with the vendor Python environment and inspect `/api/system/diagnostics`.
+- **CUDA unavailable:** update the NVIDIA driver and use the upstream CUDA-enabled PyTorch environment; CPU-only wheels are not the tested setup.
+- **Out of memory:** shorten scripts, close other GPU applications, or generate timeline segments separately.
+- **FFmpeg missing:** install FFmpeg, add its `bin` directory to `PATH`, and reopen PowerShell.
+- **Server failure:** ensure port 8000 is free and inspect `logs/server-error.log`.
 
-## Planned phases
+## Privacy and responsible use
 
-Emotion controls, waveform editing, enhancement, WAV/MP3/FLAC export options, projects, multi-character timelines and batch generation follow the real basic-generation gate. Model generation controls will be kept separate from audio post-processing. No UI control will pretend to expose an unsupported model feature.
+The server binds to localhost by default. Recordings and generated audio remain in the configured local storage directory. Clone only voices you own or have explicit permission to use, and disclose synthetic audio where required by law or context.
 
-Screenshot documentation will be added after browser verification.
+## Credits and third-party components
 
-Upstream code and checkpoints retain their respective licenses: [IndexTTS](https://github.com/index-tts/index-tts), [model repository](https://huggingface.co/IndexTeam/IndexTTS-2.5).
+- **IndexTTS 2.5**: speech synthesis and voice cloning. [Source repository](https://github.com/index-tts/index-tts) and [model checkpoints](https://huggingface.co/IndexTeam/IndexTTS-2.5). Review the upstream source and model licenses before redistribution or commercial use.
+- **PyTorch and torchaudio**: CUDA tensor and audio runtime. [pytorch.org](https://pytorch.org/)
+- **Hugging Face Hub**: checkpoint download tooling. [Documentation](https://huggingface.co/docs/huggingface_hub)
+- **FastAPI, Uvicorn, Pydantic, NumPy, SoundFile, pytest**: backend, validation, numerical/audio I/O, and tests. Each package retains its own license.
+- **React, TypeScript, Vite, lucide-react**: frontend runtime, build tooling, and icons. [React](https://react.dev/) · [TypeScript](https://www.typescriptlang.org/) · [Vite](https://vite.dev/) · [Lucide](https://lucide.dev/)
+- **FFmpeg**: decoding, enhancement, trimming, concatenation, and export. [ffmpeg.org](https://ffmpeg.org/). Check the binary's license and enabled codecs when distributing it.
+- **uv**: Python version and environment management. [Documentation](https://docs.astral.sh/uv/)
+
+This repository does not include upstream model weights or the upstream source checkout. The installer downloads them locally and `.gitignore` excludes them.
+
+## License
+
+The application code is provided under the terms in [LICENSE](LICENSE). Third-party software, upstream source, model checkpoints, and downloaded binaries remain subject to their own licenses and terms. Check those terms before publishing a packaged build or using the application commercially.
+
+## Documentation
+
+- [Full specification](docs/SPECIFICATION.md)
+- [Implementation progress](docs/PROGRESS.md)

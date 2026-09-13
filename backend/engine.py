@@ -48,7 +48,11 @@ class IndexTTSEngine:
                 with torch.inference_mode():
                     self.model.infer(spk_audio_prompt=str(reference), text=request.text,
                                      lang=request.language, output_path=str(output), verbose=False,
-                                     emo_vector=request.emotion_vector, emo_alpha=request.emotion_alpha,
+                                     emo_vector=request.emotion_vector if request.emotion_mode == 'vector' else None,
+                                     emo_alpha=request.emotion_alpha,
+                                     use_emo_text=request.emotion_mode in ('description', 'auto_text'),
+                                     emo_text=request.emotion_text if request.emotion_mode == 'description' else None,
+                                     use_random=request.use_random,
                                      duration_factor=request.duration_factor)
             except torch.cuda.OutOfMemoryError:
                 torch.cuda.empty_cache()

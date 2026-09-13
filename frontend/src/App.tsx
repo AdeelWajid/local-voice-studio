@@ -29,6 +29,8 @@ export default function App() {
   const [emotion, setEmotion] = useState([0, 0, 0, 0, 0, 0, 0, 0]);
   const [alpha, setAlpha] = useState(0.6);
   const [speed, setSpeed] = useState(1);
+  const [emotionMode, setEmotionMode] = useState("vector");
+  const [emotionText, setEmotionText] = useState("");
   const emotionNames = [
     "Happy",
     "Angry",
@@ -101,6 +103,8 @@ export default function App() {
           text,
           voice_id: voice,
           language,
+          emotion_mode: emotionMode,
+          emotion_text: emotionText || null,
           emotion_vector: emotion,
           emotion_alpha: alpha,
           duration_factor: speed,
@@ -128,6 +132,8 @@ export default function App() {
     emotion,
     alpha,
     speed,
+    emotionMode,
+    emotionText,
     busy,
     connected,
     model?.checkpoints_ready,
@@ -287,6 +293,29 @@ export default function App() {
                 supported by this release.
               </p>
               <div className="emotion-box">
+                <div className="field-row">
+                  <span className="field-label">EMOTION MODE</span>
+                </div>
+                <select
+                  aria-label="Emotion mode"
+                  value={emotionMode}
+                  onChange={(e) => setEmotionMode(e.target.value)}
+                >
+                  <option value="vector">Emotion mixer</option>
+                  <option value="speaker">Speaker original</option>
+                  <option value="description">Emotion description</option>
+                  <option value="auto_text">Auto from script</option>
+                </select>
+                {emotionMode === "description" && (
+                  <textarea
+                    className="emotion-prompt"
+                    aria-label="Emotion description"
+                    value={emotionText}
+                    onChange={(e) => setEmotionText(e.target.value)}
+                    maxLength={500}
+                    placeholder="Speak softly with sadness, but remain composed…"
+                  />
+                )}
                 <div className="field-row">
                   <span className="field-label">EMOTION MIXER</span>
                   <button

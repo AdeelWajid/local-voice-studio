@@ -10,3 +10,25 @@ __pycache__/
 *.pyc
 *.tsbuildinfo
 .env
+.env.*
+!.env.example
+
+# Local IDE and OS files
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+Desktop.ini
+
+# Runtime and generated audio
+*.wav
+*.mp3
+*.flac
+temp/
+tmp/
+
+# Coverage and tooling caches
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/

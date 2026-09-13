@@ -790,3 +790,51 @@ footer .dot {
 .secondary:hover:not(:disabled){border-color:#8eb978;background:#24362e;transform:translateY(-1px)}
 @media (max-width:1150px){.timeline-panel{grid-column:1/-1}}
 @media (max-width:700px){.brand{font-size:13px}.system{max-width:145px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.timeline-row{grid-template-columns:20px 1fr 24px}.timeline-row select{grid-column:2/-1}.timeline-actions{flex-direction:column}.timeline-actions .secondary{justify-content:center}.editor-strip input{flex:1;min-width:80px}footer{flex-wrap:wrap}.project-name{flex:1;min-width:140px}}
+
+/* Modern dashboard theme */
+:root { --accent: #b9a7ff; --accent-strong: #8d78f2; --line: #30364b; }
+body { color: #eef0ff; background: radial-gradient(900px 500px at 70% -10%, #382c66 0%, transparent 65%), radial-gradient(700px 500px at 0% 100%, #182d40 0%, transparent 60%), #080b12; }
+.rail { width: 76px; background: #0d111b; border-right-color: #252b3e; }
+.brand-icon { color: #c2b4ff; }
+.rail-active { color: #d1c7ff; background: linear-gradient(145deg,#5548a0,#30295d); box-shadow: 0 8px 22px #6b5bd640; }
+.workspace { margin-left: 76px; }
+header { height: 78px; padding: 0 42px; background: #0b0f18dd; border-bottom-color: #252b3e; }
+.brand { font-size: 17px; letter-spacing: -.3px; }
+.version { color: #bdb2f3; border-color: #4c437e; background: #211c3a; }
+.system { color: #aeb4cc; }
+.dot { background: #a8f29b; box-shadow: 0 0 10px #a8f29b; }
+main { max-width: 1540px; padding: 48px 42px 0; }
+.eyebrow { color: #b9a7ff; letter-spacing: 2.5px; }
+h1 { font-size: clamp(32px, 3.2vw, 52px); font-weight: 650; letter-spacing: -2px; line-height: 1.05; }
+.page-title { margin-bottom: 38px; }
+.page-title p { color: #9da5bd; font-size: 14px; }
+.local-badge { border-color: #4c437e; background: #211c3a; color: #cfc6ff; padding: 10px 14px; border-radius: 999px; }
+.studio-grid { gap: 20px; grid-template-columns: 280px minmax(420px, 1fr) 310px; }
+.panel { background: linear-gradient(145deg,#171d2c,#111620); border-color: #30364b; border-radius: 18px; box-shadow: 0 20px 60px #00000035; }
+.panel-heading { min-height: 62px; }
+.voice-panel,.settings-panel { padding: 0 22px; }
+.section-help { color: #929ab6; }
+.upload-button { border-color: #5b5195; background: #211d3a; color: #d8d0ff; border-radius: 10px; padding: 13px 12px; }
+.voice-card { padding: 13px 10px; border-radius: 10px; }
+.voice-card.selected { background: linear-gradient(100deg,#332e60,#202541); border-color: #7567c4; box-shadow: inset 3px 0 #b9a7ff, 0 6px 20px #0002; }
+.avatar { background: linear-gradient(145deg,#6357b0,#342d65); color: #eeeaff; border-radius: 10px; }
+.script-panel { min-height: 480px; }
+.script-panel .panel-heading { padding: 0 25px; }
+.script-toolbar { background: #151b2a; border-color: #30364b; padding: 0 25px; }
+.script-panel textarea { padding: 28px 25px; font-size: 17px; line-height: 1.9; }
+select,input { background: #171d2b; border-color: #3b4561; border-radius: 9px; padding: 12px; }
+select:focus,input:focus { border-color: #a392ff; box-shadow: 0 0 0 3px #9d8cff1c; }
+.timeline-panel { background: linear-gradient(145deg,#171d2c,#111620); }
+.timeline-panel .panel-heading { border-color: #30364b; }
+.primary { background: linear-gradient(135deg,#c7baff,#806cea); color: #171329; border-radius: 10px; font-size: 12px; padding: 14px 16px; box-shadow: 0 10px 30px #8d78f244; }
+.secondary { background: #1b2235; border-color: #4b5680; color: #d3ccff; border-radius: 9px; }
+.secondary:hover:not(:disabled) { background: #2a3150; border-color: #a392ff; }
+.waveform { background: linear-gradient(90deg,#161b2d,#202044,#161b2d); border-color: #30364b; }
+.waveform span { background: linear-gradient(180deg,#d0c6ff,#8d78f2); }
+.output-panel { margin-top: 24px; }
+.progress { background: #242044; color: #d6ceff; }
+.job-list { border-color: #30364b; }
+.job { border-color: #272e42; }
+.alert { background: #34253c; border-color: #76549b; }
+@media (max-width: 1150px) { .studio-grid { grid-template-columns: 250px minmax(300px,1fr); } }
+@media (max-width: 700px) { .rail { display:none; } .workspace { margin-left:0; } header { padding:0 18px; height:66px; } main { padding:30px 15px 0; } h1 { font-size:34px; } .studio-grid { grid-template-columns:1fr; } .panel { border-radius:15px; } .script-panel { min-height:380px; } }

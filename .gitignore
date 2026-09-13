@@ -1,0 +1,11 @@
+vendor/
+.venv/
+node_modules/
+frontend/dist/
+data/
+checkpoints/
+logs/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env

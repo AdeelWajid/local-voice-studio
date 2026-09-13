@@ -103,7 +103,7 @@ This repository does not include upstream model weights or the upstream source c
 
 ## License
 
-The application code is provided under the terms in [LICENSE](LICENSE). Third-party software, upstream source, model checkpoints, and downloaded binaries remain subject to their own licenses and terms. Check those terms before publishing a packaged build or using the application commercially.
+No project-level license has been selected yet. Third-party software, upstream source, model checkpoints, and downloaded binaries remain subject to their own licenses and terms. Add a project license before accepting outside contributions or publishing a redistributed package.
 
 ## Documentation
 

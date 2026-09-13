@@ -148,6 +148,24 @@ def generate_batch(payload: dict):
         except Exception as exc: raise HTTPException(422, str(exc))
     return {'ids':ids}
 
+@app.post('/api/generate/segments', status_code=202)
+def generate_segments(payload: dict):
+    """Queue timeline segments; each segment may use a different saved speaker."""
+    segments = payload.get('segments', [])
+    if not isinstance(segments, list) or not 1 <= len(segments) <= 50:
+        raise HTTPException(422, 'Timeline must contain between 1 and 50 segments.')
+    ids = []
+    for index, item in enumerate(segments):
+        try:
+            request = GenerateRequest.model_validate(item)
+            with connection() as db:
+                if not db.execute('SELECT id FROM voices WHERE id=?', (request.voice_id,)).fetchone():
+                    raise ValueError(f'Segment {index + 1}: choose an existing voice profile.')
+            ids.append(jobs.submit(request))
+        except Exception as exc:
+            raise HTTPException(422, str(exc))
+    return {'ids': ids}
+
 @app.get('/api/jobs')
 def list_jobs():
     with connection() as db:
@@ -186,6 +204,36 @@ def enhance_endpoint(payload: dict):
     if job['status']!='completed': raise HTTPException(409,'Audio is not ready yet.')
     target=DATA/'generations'/f"{job['id']}-enhanced.wav"; enhance(DATA/job['audio'],target,payload.get('settings',{}))
     return {'audio':str(target.relative_to(DATA)),'url':f"/api/audio/file/{target.name}"}
+
+@app.post('/api/audio/concat')
+def concat_audio(payload: dict):
+    """Join completed segment jobs with a configurable silence gap."""
+    ids = payload.get('job_ids', []); gap = float(payload.get('gap', 0.25))
+    if not isinstance(ids, list) or not 1 <= len(ids) <= 50 or not 0 <= gap <= 10:
+        raise HTTPException(422, 'Choose 1–50 jobs and a gap from 0 to 10 seconds.')
+    sources = []
+    for job_id in ids:
+        row = get_job(str(job_id))
+        if row['status'] != 'completed' or not row['audio']: raise HTTPException(409, 'All segments must be completed.')
+        sources.append(DATA / row['audio'])
+    target = DATA / 'generations' / f"timeline-{uuid4()}.wav"
+    inputs = []
+    for source in sources: inputs += ['-i', str(source)]
+    filters = ''.join(f'[{i}:a]' for i in range(len(sources)))
+    if gap:
+        filters += f"aevalsrc=0:d={gap}:s=22050:c=mono[sil];[0:a]"
+        # Build a concat filter with silence pads between each segment.
+        parts = []
+        for i in range(len(sources)):
+            parts.append(f'[{i}:a]')
+            if i < len(sources)-1: parts.append(f'silence{i}')
+        silence = ''.join(f'aevalsrc=0:d={gap}:s=22050:c=mono[silence{i}];' for i in range(len(sources)-1))
+        graph = silence + ''.join(parts) + f'concat=n={len(sources)*2-1}:v=0:a=1[out]'
+    else:
+        graph = ''.join(f'[{i}:a]' for i in range(len(sources))) + f'concat=n={len(sources)}:v=0:a=1[out]'
+    result = subprocess.run(['ffmpeg','-nostdin','-v','error','-y',*inputs,'-filter_complex',graph,'-map','[out]','-ar','22050','-ac','1',str(target)],capture_output=True,timeout=300)
+    if result.returncode: raise HTTPException(422, 'The timeline could not be assembled.')
+    return {'audio': str(target.relative_to(DATA)), 'url': f'/api/audio/file/{target.name}'}
 
 @app.get('/api/presets')
 def get_presets(): return list_presets()

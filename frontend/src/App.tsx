@@ -55,6 +55,7 @@ export default function App() {
   const [trimmedUrl, setTrimmedUrl] = useState<string | null>(null);
   const [waveform, setWaveform] = useState<number[]>([]);
   const [projectName, setProjectName] = useState("Untitled project");
+  const [segments, setSegments] = useState([{ text: "", voice_id: "", language: "EN" }]);
   const active = jobs.find((j) => ["queued", "generating"].includes(j.status));
   const current =
     jobs.find((j) => j.id === selected) ||
@@ -198,6 +199,13 @@ export default function App() {
     } finally {
       setBusy(false);
     }
+  }
+  async function generateTimeline() {
+    const valid = segments.filter((segment) => segment.text.trim() && segment.voice_id);
+    if (!valid.length) return setError("Add text and a speaker to at least one timeline segment.");
+    try {
+      await api("/generate/segments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ segments: valid.map((s) => ({ ...s, emotion_mode: emotionMode, emotion_vector: emotion, emotion_alpha: alpha, duration_factor: speed })) }) });
+    } catch (e) { setError((e as Error).message); }
   }
   useEffect(() => {
     function key(e: KeyboardEvent) {
@@ -343,6 +351,19 @@ export default function App() {
               </div>
             </section>
             <ScriptEditor text={text} onChange={setText} saved={saved} />
+            <section className="panel timeline-panel">
+              <div className="panel-heading"><h2>Advanced timeline</h2><span className="muted">SEGMENTS</span></div>
+              <p className="section-help">Assign each line to a saved speaker, then queue the whole sequence.</p>
+              {segments.map((segment, index) => <div className="timeline-row" key={index}>
+                <span className="timeline-index">{index + 1}</span>
+                <input value={segment.text} placeholder="Segment text" onChange={(e) => setSegments((all) => all.map((s, i) => i === index ? { ...s, text: e.target.value } : s))} />
+                <select value={segment.voice_id} onChange={(e) => setSegments((all) => all.map((s, i) => i === index ? { ...s, voice_id: e.target.value } : s))}>
+                  <option value="">Speaker</option>{voices.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </select>
+                {segments.length > 1 && <button className="icon-button" onClick={() => setSegments((all) => all.filter((_, i) => i !== index))}><X size={14} /></button>}
+              </div>)}
+              <div className="timeline-actions"><button className="secondary" onClick={() => setSegments((all) => [...all, { text: "", voice_id: voice, language }])}><Plus size={14} /> Add segment</button><button className="secondary" onClick={() => void generateTimeline()} disabled={!connected || !model?.checkpoints_ready}>Queue timeline</button></div>
+            </section>
             <section className="panel settings-panel">
               <div className="panel-heading">
                 <h2>Direction</h2>

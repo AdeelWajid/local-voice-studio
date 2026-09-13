@@ -217,21 +217,18 @@ def concat_audio(payload: dict):
         if row['status'] != 'completed' or not row['audio']: raise HTTPException(409, 'All segments must be completed.')
         sources.append(DATA / row['audio'])
     target = DATA / 'generations' / f"timeline-{uuid4()}.wav"
-    inputs = []
-    for source in sources: inputs += ['-i', str(source)]
-    filters = ''.join(f'[{i}:a]' for i in range(len(sources)))
+    silence_path = DATA / 'temp' / f'silence-{uuid4()}.wav'; silence_path.parent.mkdir(parents=True, exist_ok=True)
     if gap:
-        filters += f"aevalsrc=0:d={gap}:s=22050:c=mono[sil];[0:a]"
-        # Build a concat filter with silence pads between each segment.
-        parts = []
-        for i in range(len(sources)):
-            parts.append(f'[{i}:a]')
-            if i < len(sources)-1: parts.append(f'silence{i}')
-        silence = ''.join(f'anullsrc=r=22050:cl=mono:d={gap}[silence{i}];' for i in range(len(sources)-1))
-        graph = silence + ''.join(parts) + f'concat=n={len(sources)*2-1}:v=0:a=1[out]'
-    else:
-        graph = ''.join(f'[{i}:a]' for i in range(len(sources))) + f'concat=n={len(sources)}:v=0:a=1[out]'
-    result = subprocess.run(['ffmpeg','-nostdin','-v','error','-y',*inputs,'-filter_complex',graph,'-map','[out]','-ar','22050','-ac','1',str(target)],capture_output=True,timeout=300)
+        silence_result = subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-f','lavfi','-i',f'anullsrc=r=22050:cl=mono:d={gap}','-t',str(gap),str(silence_path)],capture_output=True,timeout=60)
+        if silence_result.returncode: raise HTTPException(422, 'Could not create timeline silence.')
+    sequence = []
+    for index, source in enumerate(sources):
+        sequence.append(source)
+        if gap and index < len(sources) - 1: sequence.append(silence_path)
+    list_path = DATA / 'temp' / f'concat-{uuid4()}.txt'
+    list_path.write_text(''.join(f"file '{str(path).replace(chr(39), chr(39)+chr(92)+chr(39)+chr(39))}'\n" for path in sequence), encoding='utf-8')
+    result = subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-f','concat','-safe','0','-i',str(list_path),'-ar','22050','-ac','1','-c:a','pcm_s16le',str(target)],capture_output=True,timeout=300)
+    list_path.unlink(missing_ok=True); silence_path.unlink(missing_ok=True)
     if result.returncode: raise HTTPException(422, 'The timeline could not be assembled.')
     return {'audio': str(target.relative_to(DATA)), 'url': f'/api/audio/file/{target.name}'}
 

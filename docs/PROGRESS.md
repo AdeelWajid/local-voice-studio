@@ -9,8 +9,8 @@ The full requirements are preserved in SPECIFICATION.md.
 - [~] Phase 3: waveforms, takes, history, projects and presets (job history, waveform data, project CRUD, presets and batch API are available).
 - [~] Phase 4: non-destructive editing and undo/redo (safe trim and enhancement endpoints are available).
 - [~] Phase 5: optional audio processing and enhancement presets (FFmpeg denoise, high-pass, compression, loudness normalization, FLAC/MP3 export are available).
-- [ ] Phase 6: segments, timeline, multiple speakers and batches.
-- [~] Phase 7: diagnostics, optimization, installation, tests and packaging (diagnostics, install/start scripts and automated tests are complete; packaging polish remains).
+- [x] Phase 6: segments, timeline, multiple speakers and batches (segment queueing, per-segment speaker selection, timeline assembly with configurable silence, and batch generation are available).
+- [x] Phase 7: diagnostics, optimization, installation, tests and packaging (diagnostics, install/start scripts, production build, real GPU smoke test and automated tests are complete).
 
 Do not pass Phase 1 until a real reference produces a playable WAV through the application API. Mock inference does not satisfy this gate.
 

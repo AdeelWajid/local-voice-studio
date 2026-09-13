@@ -6,9 +6,9 @@ The full requirements are preserved in SPECIFICATION.md.
 
 - [x] Phase 1: official IndexTTS 2.5, FastAPI, React, reference upload, real GPU generation, WAV playback.
 - [~] Phase 2: voice profiles and all supported emotion, speed and language controls (eight-value vector, alpha, speed and supported language are wired and verified through a real GPU request).
-- [ ] Phase 3: waveforms, takes, history, projects and presets.
-- [ ] Phase 4: non-destructive editing and undo/redo.
-- [ ] Phase 5: optional audio processing and enhancement presets.
+- [~] Phase 3: waveforms, takes, history, projects and presets (job history, project CRUD, presets and batch API are available).
+- [~] Phase 4: non-destructive editing and undo/redo (safe trim and enhancement endpoints are available).
+- [~] Phase 5: optional audio processing and enhancement presets (FFmpeg denoise, high-pass, compression, loudness normalization, FLAC/MP3 export are available).
 - [ ] Phase 6: segments, timeline, multiple speakers and batches.
 - [ ] Phase 7: diagnostics, optimization, installation, tests and packaging.
 

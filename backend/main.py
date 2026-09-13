@@ -1,5 +1,6 @@
 import asyncio
 import json
+import subprocess
 import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -16,6 +17,8 @@ from backend.audio_io import decode_reference
 from backend.engine import engine
 from backend.jobs import jobs, now
 from backend.audio_edit import trim_audio
+from backend.enhancement import enhance
+from backend.presets import list_presets, save_preset
 from backend.schemas import GenerateRequest
 from backend.diagnostics import diagnostics, missing_checkpoints
 from backend.logging_setup import configure_logging
@@ -133,6 +136,16 @@ def generate(request: GenerateRequest):
     except ValueError as exc:
         raise HTTPException(429, str(exc))
 
+@app.post('/api/generate/batch', status_code=202)
+def generate_batch(payload: dict):
+    requests = payload.get('requests', [])
+    if not isinstance(requests, list) or not 1 <= len(requests) <= 10: raise HTTPException(422, 'Batch size must be between 1 and 10.')
+    ids=[]
+    for item in requests:
+        try: ids.append(jobs.submit(GenerateRequest.model_validate(item)))
+        except Exception as exc: raise HTTPException(422, str(exc))
+    return {'ids':ids}
+
 @app.get('/api/jobs')
 def list_jobs():
     with connection() as db:
@@ -165,12 +178,36 @@ def trim_endpoint(payload: dict):
     trim_audio(DATA / job['audio'], target, float(payload.get('start',0)), float(payload.get('end',0)))
     return {'audio':str(target.relative_to(DATA)),'url':f"/api/audio/file/{target.name}"}
 
+@app.post('/api/audio/enhance')
+def enhance_endpoint(payload: dict):
+    job=get_job(str(payload.get('job_id','')))
+    if job['status']!='completed': raise HTTPException(409,'Audio is not ready yet.')
+    target=DATA/'generations'/f"{job['id']}-enhanced.wav"; enhance(DATA/job['audio'],target,payload.get('settings',{}))
+    return {'audio':str(target.relative_to(DATA)),'url':f"/api/audio/file/{target.name}"}
+
+@app.get('/api/presets')
+def get_presets(): return list_presets()
+
+@app.post('/api/presets',status_code=201)
+def create_preset(payload: dict): return save_preset(payload)
+
 @app.get('/api/audio/file/{filename}')
 def edited_audio(filename: str):
     if '/' in filename or '\\' in filename or not filename.endswith('.wav'): raise HTTPException(404,'Audio not found.')
     target = DATA / 'generations' / filename
     if not target.is_file(): raise HTTPException(404,'Audio not found.')
     return FileResponse(target, media_type='audio/wav')
+
+@app.get('/api/jobs/{job_id}/export/{format}')
+def export_audio(job_id: str, format: str):
+    job=get_job(job_id)
+    if job['status']!='completed': raise HTTPException(409,'Audio is not ready yet.')
+    if format not in {'wav','flac','mp3'}: raise HTTPException(422,'Supported exports are WAV, FLAC and MP3.')
+    source=DATA/job['audio']; target=DATA/'exports'/f'{job_id}.{format}'; target.parent.mkdir(parents=True,exist_ok=True)
+    codec={'wav':['-c:a','pcm_s16le'],'flac':['-c:a','flac'],'mp3':['-c:a','libmp3lame','-b:a','192k']}[format]
+    result=subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-i',str(source),*codec,str(target)],capture_output=True,timeout=180)
+    if result.returncode: raise HTTPException(422,'Audio export failed.')
+    return FileResponse(target,media_type={'wav':'audio/wav','flac':'audio/flac','mp3':'audio/mpeg'}[format],filename=target.name)
 
 @app.get('/api/jobs/{job_id}')
 def get_job(job_id: str):

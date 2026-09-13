@@ -454,6 +454,20 @@ export default function App() {
                 >
                   <Download size={16} /> WAV
                 </a>
+                <a
+                  className="secondary"
+                  href={`/api/jobs/${current.id}/export/flac`}
+                  download
+                >
+                  FLAC
+                </a>
+                <a
+                  className="secondary"
+                  href={`/api/jobs/${current.id}/export/mp3`}
+                  download
+                >
+                  MP3
+                </a>
               </div>
             ) : (
               <div className="output-empty">

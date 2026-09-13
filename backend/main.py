@@ -1,6 +1,8 @@
 import asyncio
 import json
 import subprocess
+import numpy as np
+import soundfile as sf
 import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -229,6 +231,14 @@ def job_audio(job_id: str):
     if row['status'] != 'completed' or not row['audio']:
         raise HTTPException(409, 'Audio is not ready yet.')
     return FileResponse(DATA / row['audio'], media_type='audio/wav', filename=f'take-{job_id[:8]}.wav')
+
+@app.get('/api/jobs/{job_id}/waveform')
+def job_waveform(job_id: str, bins: int = 160):
+    row=get_job(job_id)
+    if row['status']!='completed' or not row['audio']: raise HTTPException(409,'Audio is not ready yet.')
+    bins=max(16,min(800,bins)); audio,sr=sf.read(DATA/row['audio'],always_2d=True); mono=np.max(np.abs(audio),axis=1)
+    edges=np.linspace(0,len(mono),bins+1,dtype=int); peaks=[float(mono[edges[i]:edges[i+1]].max()) if edges[i]<edges[i+1] else 0.0 for i in range(bins)]
+    return {'peaks':peaks,'duration':len(mono)/sr,'sample_rate':sr}
 
 @app.websocket('/ws/jobs')
 async def websocket_jobs(socket: WebSocket):

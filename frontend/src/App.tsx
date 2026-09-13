@@ -31,6 +31,8 @@ export default function App() {
   const [speed, setSpeed] = useState(1);
   const [emotionMode, setEmotionMode] = useState("vector");
   const [emotionText, setEmotionText] = useState("");
+  const [emotionReferenceId, setEmotionReferenceId] = useState("");
+  const [emotionReferenceName, setEmotionReferenceName] = useState("");
   const emotionNames = [
     "Happy",
     "Angry",
@@ -51,6 +53,7 @@ export default function App() {
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
   const [trimmedUrl, setTrimmedUrl] = useState<string | null>(null);
+  const [waveform, setWaveform] = useState<number[]>([]);
   const [projectName, setProjectName] = useState("Untitled project");
   const active = jobs.find((j) => ["queued", "generating"].includes(j.status));
   const current =
@@ -153,6 +156,15 @@ export default function App() {
       socket.close();
     };
   }, []);
+  useEffect(() => {
+    if (!current || current.status !== "completed") {
+      setWaveform([]);
+      return;
+    }
+    api<{ peaks: number[] }>(`/jobs/${current.id}/waveform`)
+      .then((result) => setWaveform(result.peaks))
+      .catch(() => setWaveform([]));
+  }, [current?.id, current?.status]);
   async function generate() {
     if (
       !voice ||
@@ -175,6 +187,7 @@ export default function App() {
           language,
           emotion_mode: emotionMode,
           emotion_text: emotionText || null,
+          emotion_reference_id: emotionReferenceId || null,
           emotion_vector: emotion,
           emotion_alpha: alpha,
           duration_factor: speed,
@@ -375,7 +388,31 @@ export default function App() {
                   <option value="speaker">Speaker original</option>
                   <option value="description">Emotion description</option>
                   <option value="auto_text">Auto from script</option>
+                  <option value="reference">Emotion reference audio</option>
                 </select>
+                {emotionMode === "reference" && (
+                  <label className="upload-inline">
+                    <span>{emotionReferenceName || "Choose a 3–60 second emotion reference"}</span>
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const body = new FormData();
+                        body.append("name", file.name.replace(/\.[^.]+$/, ""));
+                        body.append("file", file);
+                        try {
+                          const ref = await api<{ id: string; name: string }>("/emotion-references", { method: "POST", body });
+                          setEmotionReferenceId(ref.id);
+                          setEmotionReferenceName(ref.name);
+                        } catch (err) {
+                          setError((err as Error).message);
+                        }
+                      }}
+                    />
+                  </label>
+                )}
                 {emotionMode === "description" && (
                   <textarea
                     className="emotion-prompt"
@@ -502,6 +539,16 @@ export default function App() {
             )}
             {current ? (
               <>
+                {waveform.length > 0 && (
+                  <div className="waveform" aria-label="Audio waveform">
+                    {waveform.map((peak, index) => (
+                      <span
+                        key={index}
+                        style={{ height: `${Math.max(4, peak * 100)}%` }}
+                      />
+                    ))}
+                  </div>
+                )}
                 <div className="audio-result">
                   <div>
                     <span className="take-icon">

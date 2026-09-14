@@ -18,6 +18,7 @@ export type Model = {
   state: string;
   error: string | null;
   model: string;
+  device?: string | null;
   languages: Record<string, string>;
 };
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {

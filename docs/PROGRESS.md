@@ -16,4 +16,4 @@ Do not pass Phase 1 until a real reference produces a playable WAV through the a
 
 ## Environment
 
-Windows 11, RTX 5060 Ti 16 GB, NVIDIA driver 616.92. FFmpeg, Node, Git and uv are installed. Python 3.11 is being provisioned in isolation. The upstream CUDA 12.8 / PyTorch 2.8 dependency set will be used.
+Windows 11, RTX 5060 Ti 16 GB, NVIDIA driver 616.92. macOS Apple Silicon uses the same IndexTTS revision with Metal/MPS. FFmpeg, Node, Git and uv are installed. Python 3.11 is provisioned in isolation. Windows uses the upstream CUDA 12.8 / PyTorch 2.8 set; macOS uses the official PyTorch 2.8 Metal build.

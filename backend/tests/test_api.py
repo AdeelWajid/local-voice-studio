@@ -10,7 +10,7 @@ _temporary = tempfile.TemporaryDirectory(prefix='voice-studio-tests-')
 os.environ['VOICE_STUDIO_DATA'] = _temporary.name
 from fastapi.testclient import TestClient
 from backend.main import app
-from backend.config import DATA
+from backend.config import DATA, default_data_dir, studio_python
 from backend.schemas import GenerateRequest
 
 @pytest.fixture(scope='module')
@@ -79,3 +79,18 @@ def test_missing_audio_returns_actionable_error(client):
 def test_external_websites_cannot_read_local_voices(client):
     assert client.get('/api/voices', headers={'origin':'https://example.com'}).status_code == 403
     assert client.get('/api/voices', headers={'host':'example.com'}).status_code == 400
+
+def test_default_data_directories_follow_the_host_os():
+    home = Path('/Users/test')
+    assert default_data_dir(platform='darwin', home=home) == home / 'Library' / 'Application Support' / 'LocalVoiceStudio' / 'data'
+    assert default_data_dir(platform='win32', home=home, localappdata='C:/Users/test/AppData/Local') == Path('C:/Users/test/AppData/Local/LocalVoiceStudio/data')
+    assert default_data_dir(platform='linux', home=home) == home / '.local' / 'share' / 'LocalVoiceStudio' / 'data'
+    assert studio_python(platform='darwin').as_posix().endswith('vendor/index-tts/.venv/bin/python')
+    assert studio_python(platform='win32').as_posix().endswith('vendor/index-tts/.venv/Scripts/python.exe')
+
+def test_diagnostics_report_an_accelerator(client):
+    payload = client.get('/api/system/diagnostics').json()
+    assert isinstance(payload['gpu'], dict)
+    assert {'backend', 'name'} <= set(payload['gpu'])
+    model = client.get('/api/system/model').json()
+    assert 'device' in model

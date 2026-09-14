@@ -209,7 +209,7 @@ export default function App() {
   }
   useEffect(() => {
     function key(e: KeyboardEvent) {
-      if (e.ctrlKey && e.key === "Enter") {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
         void generate();
       }
@@ -256,6 +256,7 @@ export default function App() {
             <span className="divider" />
             <span className="model-state">
               {model?.state.replace("_", " ") || "Offline"}
+              {model?.device ? ` · ${model.device}` : ""}
             </span>
           </div>
         </header>
@@ -526,7 +527,11 @@ export default function App() {
                   Generate speech
                   <ChevronRight size={17} />
                 </button>
-                <span className="shortcut">Ctrl ↵ to generate</span>
+                <span className="shortcut">
+                  {/Mac|iPhone|iPad/.test(navigator.userAgent)
+                    ? "⌘ ↵ to generate"
+                    : "Ctrl ↵ to generate"}
+                </span>
               </div>
             </section>
           </div>
@@ -545,7 +550,7 @@ export default function App() {
                     ? model?.state === "loading"
                       ? "Loading IndexTTS. The first run takes longer…"
                       : "Generating your speech…"
-                    : "Waiting for the GPU…"}
+                    : "Waiting for the engine…"}
                 </span>
                 <button
                   onClick={() =>

@@ -47,7 +47,7 @@ async def local_origin_only(request, call_next):
 @app.get('/api/system/model')
 def model_status():
     return {'state': engine.state, 'error': engine.error, 'model': 'IndexTTS 2.5',
-            'checkpoints_ready': not missing_checkpoints(),
+            'device': engine.device, 'checkpoints_ready': not missing_checkpoints(),
             'languages': {'EN': 'English', 'ZH': 'Chinese', 'JA': 'Japanese', 'ES': 'Spanish', 'AR': 'Arabic'}}
 
 @app.get('/api/system/diagnostics')

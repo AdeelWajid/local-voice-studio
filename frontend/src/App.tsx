@@ -19,6 +19,71 @@ import { VoiceImport } from "./components/VoiceImport";
 import { ScriptEditor } from "./components/ScriptEditor";
 import { useLocalScript } from "./hooks/useLocalScript";
 
+const EMOTION_GUIDES: Record<
+  string,
+  {
+    title: string;
+    how: string;
+    examples: { label: string; detail: string; vector?: number[]; text?: string }[];
+  }
+> = {
+  vector: {
+    title: "Emotion mixer",
+    how: "Blend the eight sliders. Your voice recording stays who is speaking; the mix is how they feel.",
+    examples: [
+      { label: "Warm narrator", detail: "Happy 0.35 · Calm 0.55", vector: [0.35, 0, 0, 0, 0, 0.08, 0, 0.55] },
+      { label: "Controlled anger", detail: "Angry 0.72 · Calm 0.38", vector: [0, 0.72, 0.08, 0, 0.12, 0.05, 0, 0.38] },
+      { label: "Deep sadness", detail: "Sad 0.75 · Melancholic 0.45", vector: [0, 0, 0.75, 0.1, 0, 0.45, 0, 0.2] },
+    ],
+  },
+  speaker: {
+    title: "Speaker original",
+    how: "Keep the feeling already in your voice recording. Use this when the sample already sounds like the performance you want.",
+    examples: [
+      { label: "Calm read-through", detail: "A neutral 8-second clip, used as-is." },
+      { label: "Natural greeting", detail: "An already-excited hello, left unchanged." },
+    ],
+  },
+  description: {
+    title: "Emotion description",
+    how: "Write how they should speak in plain language. Strength controls how far the model leans into that direction.",
+    examples: [
+      {
+        label: "Soft sadness",
+        detail: "Speak softly with sadness, like someone remembering an old friend, but avoid crying.",
+        text: "Speak softly with sadness, like someone remembering an old friend, but avoid crying.",
+      },
+      {
+        label: "Professional energy",
+        detail: "Excited and energetic, but still professional.",
+        text: "Excited and energetic, but still professional.",
+      },
+      {
+        label: "Controlled frustration",
+        detail: "Angry and frustrated while trying to remain composed.",
+        text: "Angry and frustrated while trying to remain composed.",
+      },
+    ],
+  },
+  auto_text: {
+    title: "Auto from script",
+    how: "IndexTTS reads your script and chooses emotion from the words. Strength still limits how expressive it gets.",
+    examples: [
+      { label: "Surprise", detail: "“I can't believe you actually came.”" },
+      { label: "Sadness", detail: "“Please, just leave me alone.”" },
+      { label: "Anger", detail: "“Get out of my house. Now.”" },
+    ],
+  },
+  reference: {
+    title: "Emotion reference audio",
+    how: "Your voice clip is who is talking. A second 3–60 second clip is how they feel. Strength blends that acted emotion in.",
+    examples: [
+      { label: "Sad delivery", detail: "Your voice + a tearful movie line." },
+      { label: "Brighter energy", detail: "Your voice + a laugh-filled clip." },
+    ],
+  },
+};
+
 export default function App() {
   const [voices, setVoices] = useState<Voice[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -412,6 +477,40 @@ export default function App() {
                   <option value="auto_text">Auto from script</option>
                   <option value="reference">Emotion reference audio</option>
                 </select>
+                <div className="emotion-guide">
+                  <span className="field-label">EXAMPLES</span>
+                  <div className="example-list">
+                    {EMOTION_GUIDES[emotionMode].examples.map((example) => {
+                      const actionable = Boolean(example.vector || example.text);
+                      const content = (
+                        <>
+                          <strong>{example.label}</strong>
+                          <small>{example.detail}</small>
+                        </>
+                      );
+                      return actionable ? (
+                        <button
+                          key={example.label}
+                          type="button"
+                          className="example-chip"
+                          onClick={() => {
+                            if (example.vector) setEmotion(example.vector);
+                            if (example.text) setEmotionText(example.text);
+                          }}
+                        >
+                          {content}
+                        </button>
+                      ) : (
+                        <div key={example.label} className="example-chip static">
+                          {content}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {(emotionMode === "vector" || emotionMode === "description") && (
+                    <p className="hint">Click an example to apply it.</p>
+                  )}
+                </div>
                 {emotionMode === "reference" && (
                   <label className="upload-inline">
                     <span>{emotionReferenceName || "Choose a 3–60 second emotion reference"}</span>
@@ -445,47 +544,53 @@ export default function App() {
                     placeholder="Speak softly with sadness, but remain composed…"
                   />
                 )}
-                <div className="field-row">
-                  <span className="field-label">EMOTION MIXER</span>
-                  <button
-                    className="reset-link"
-                    onClick={() => setEmotion([0, 0, 0, 0, 0, 0, 0, 0])}
-                  >
-                    Reset
-                  </button>
-                </div>
-                {emotionNames.map((name, index) => (
-                  <label className="slider-row" key={name}>
-                    <span>{name}</span>
+                {emotionMode === "vector" && (
+                  <>
+                    <div className="field-row">
+                      <span className="field-label">EMOTION MIXER</span>
+                      <button
+                        className="reset-link"
+                        onClick={() => setEmotion([0, 0, 0, 0, 0, 0, 0, 0])}
+                      >
+                        Reset
+                      </button>
+                    </div>
+                    {emotionNames.map((name, index) => (
+                      <label className="slider-row" key={name}>
+                        <span>{name}</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={emotion[index]}
+                          onChange={(e) =>
+                            setEmotion((previous) =>
+                              previous.map((value, i) =>
+                                i === index ? Number(e.target.value) : value,
+                              ),
+                            )
+                          }
+                        />
+                        <output>{emotion[index].toFixed(2)}</output>
+                      </label>
+                    ))}
+                  </>
+                )}
+                {emotionMode !== "speaker" && (
+                  <label className="slider-row alpha-row">
+                    <span>Strength</span>
                     <input
                       type="range"
                       min="0"
                       max="1"
                       step="0.01"
-                      value={emotion[index]}
-                      onChange={(e) =>
-                        setEmotion((previous) =>
-                          previous.map((value, i) =>
-                            i === index ? Number(e.target.value) : value,
-                          ),
-                        )
-                      }
+                      value={alpha}
+                      onChange={(e) => setAlpha(Number(e.target.value))}
                     />
-                    <output>{emotion[index].toFixed(2)}</output>
+                    <output>{Math.round(alpha * 100)}%</output>
                   </label>
-                ))}
-                <label className="slider-row alpha-row">
-                  <span>Strength</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={alpha}
-                    onChange={(e) => setAlpha(Number(e.target.value))}
-                  />
-                  <output>{Math.round(alpha * 100)}%</output>
-                </label>
+                )}
                 <label className="slider-row alpha-row">
                   <span>Speed</span>
                   <input
@@ -501,11 +606,8 @@ export default function App() {
               </div>
               <div className="direction-note">
                 <AudioLines size={20} />
-                <strong>Original expression</strong>
-                <p>
-                  This first generation uses the speaker reference’s natural
-                  emotion and pace.
-                </p>
+                <strong>{EMOTION_GUIDES[emotionMode].title}</strong>
+                <p>{EMOTION_GUIDES[emotionMode].how}</p>
               </div>
               <div className="generate-area">
                 <button

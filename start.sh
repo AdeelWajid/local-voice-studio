@@ -25,9 +25,28 @@ if [[ "$dev" -eq 0 && ! -f frontend/dist/index.html ]]; then
 fi
 
 mkdir -p logs
-if command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:8000 -sTCP:LISTEN >/dev/null 2>&1; then
-    echo 'Port 8000 is already in use. Close the existing studio or service first.' >&2
-    exit 1
+if command -v lsof >/dev/null 2>&1; then
+    existing_pids="$(lsof -nP -iTCP:8000 -sTCP:LISTEN -t 2>/dev/null || true)"
+    if [[ -n "$existing_pids" ]]; then
+        echo "Stopping the existing process on port 8000: $(echo "$existing_pids" | xargs)"
+        # shellcheck disable=SC2086
+        kill $existing_pids 2>/dev/null || true
+        for _ in $(seq 1 20); do
+            if ! lsof -nP -iTCP:8000 -sTCP:LISTEN >/dev/null 2>&1; then
+                break
+            fi
+            sleep 0.25
+        done
+        if lsof -nP -iTCP:8000 -sTCP:LISTEN >/dev/null 2>&1; then
+            # shellcheck disable=SC2086
+            kill -9 $existing_pids 2>/dev/null || true
+            sleep 0.25
+        fi
+        if lsof -nP -iTCP:8000 -sTCP:LISTEN >/dev/null 2>&1; then
+            echo 'Could not free port 8000.' >&2
+            exit 1
+        fi
+    fi
 fi
 
 export PYTORCH_ENABLE_MPS_FALLBACK=1

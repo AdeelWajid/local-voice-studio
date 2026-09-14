@@ -87,7 +87,8 @@ async def upload_emotion_reference(name: str = Form(...), file: UploadFile = Fil
     finally: await file.close()
 
 @app.post('/api/voices', status_code=201)
-async def upload_voice(name: str = Form(...), file: UploadFile = File(...)):
+async def upload_voice(name: str = Form(...), file: UploadFile = File(...),
+                      trim_start: float | None = Form(None), trim_end: float | None = Form(None)):
     name = name.strip()
     if not 1 <= len(name) <= 100:
         raise HTTPException(422, 'Enter a voice name between 1 and 100 characters.')
@@ -108,7 +109,7 @@ async def upload_voice(name: str = Form(...), file: UploadFile = File(...)):
                 if size > MAX_UPLOAD:
                     raise HTTPException(413, 'The maximum recording size is 50 MB.')
                 target.write(chunk)
-        duration = await run_in_threadpool(decode_reference, original, reference)
+        duration = await run_in_threadpool(decode_reference, original, reference, trim_start, trim_end)
         result = {'id': voice_id, 'name': name, 'original': str(original.relative_to(DATA)),
                   'reference': str(reference.relative_to(DATA)), 'duration': duration, 'created': now()}
         with connection() as db:

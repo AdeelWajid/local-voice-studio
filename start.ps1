@@ -11,13 +11,19 @@ $studioPython = if ($isWindows) {
 if (-not (Test-Path $studioPython)) { throw 'Run scripts/install.ps1 or ./scripts/install.sh first.' }
 if (-not $Dev -and -not (Test-Path 'frontend/dist/index.html')) { throw 'Build the frontend with npm run build in frontend, or use -Dev.' }
 New-Item -ItemType Directory -Force logs | Out-Null
-$portInUse = $false
+$listenerPids = @()
 if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
-    $portInUse = [bool](Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue)
+    $listenerPids = @(Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique)
 } elseif (Get-Command lsof -ErrorAction SilentlyContinue) {
-    $portInUse = [bool](lsof -nP -iTCP:8000 -sTCP:LISTEN 2>$null)
+    $listenerPids = @((lsof -nP -iTCP:8000 -sTCP:LISTEN -t 2>$null) | Where-Object { $_ })
 }
-if ($portInUse) { throw 'Port 8000 is already in use. Close the existing studio or service first.' }
+foreach ($listenerPid in $listenerPids) {
+    Write-Host "Stopping the existing process on port 8000: $listenerPid"
+    Stop-Process -Id $listenerPid -Force -ErrorAction SilentlyContinue
+}
+if ($listenerPids.Count -gt 0) {
+    Start-Sleep -Milliseconds 400
+}
 $env:PYTORCH_ENABLE_MPS_FALLBACK = '1'
 if ($isWindows) {
     $studioProcess = Start-Process -FilePath $studioPython -ArgumentList @('-m','uvicorn','backend.main:app','--host','127.0.0.1','--port','8000') -WorkingDirectory $studioRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput 'logs/server.log' -RedirectStandardError 'logs/server-error.log'

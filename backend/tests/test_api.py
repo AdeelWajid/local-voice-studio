@@ -56,6 +56,23 @@ def test_invalid_upload_cleans_temporary_directory(client,filename,content,mime)
     assert response.status_code == 422
     assert set((DATA/'voices').iterdir()) == before
 
+def test_voice_upload_trims_reference_and_keeps_original(client):
+    original = recording(10)
+    response = client.post('/api/voices', data={'name':'Trimmed Voice','trim_start':'2','trim_end':'7'},
+                           files={'file':('voice.wav',original,'audio/wav')})
+    assert response.status_code == 201, response.text
+    voice = response.json()
+    assert 4.8 < voice['duration'] < 5.2
+    assert (DATA / voice['original']).read_bytes() == original
+    assert 4.8 < sf.info(DATA / voice['reference']).duration < 5.2
+
+def test_voice_upload_rejects_too_short_trim(client):
+    before = set((DATA/'voices').iterdir())
+    response = client.post('/api/voices', data={'name':'Tiny Trim','trim_start':'0','trim_end':'1'},
+                           files={'file':('voice.wav',recording(8),'audio/wav')})
+    assert response.status_code == 422
+    assert set((DATA/'voices').iterdir()) == before
+
 def test_short_upload_is_rejected(client):
     before = set((DATA/'voices').iterdir())
     response = client.post('/api/voices', data={'name':'Short'}, files={'file':('short.wav',recording(.25),'audio/wav')})
